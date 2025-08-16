@@ -1,0 +1,11 @@
+{
+  "name": "erick/api-solid-uspg",
+  "type": "project",
+  "description": "API PHP con principios SOLID (Alumnos y Catedraticos) usando Composer y mysqli",
+  "require": {},
+  "autoload": {
+    "psr-4": {
+      "App\\": "src/"
+    }
+  }
+}
