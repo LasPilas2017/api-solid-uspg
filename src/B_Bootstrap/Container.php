@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
+
 namespace App\B_Bootstrap;
+
 use App\I_Infrastructure\Config\Database;
 use App\I_Infrastructure\Persistence\MySQLAlumnoRepository;
 use App\I_Infrastructure\Persistence\MySQLCatedraticoRepository;
@@ -14,17 +16,52 @@ use App\D_Domain\Services\AlumnoServiceInterface;
 use App\D_Domain\Services\CatedraticoServiceInterface;
 use App\P_Presentation\Http\Controllers\AlumnoController;
 use App\P_Presentation\Http\Controllers\CatedraticoController;
+use App\A_Application\Mappers\AlumnoMapper;
+
 /** Composition Root / Contenedor [DIP] */
 final class Container {
-  private ?\mysqli $db = null;
-  public function db(): \mysqli { return $this->db ??= Database::getConexion(); }
-  // repos
-  public function alumnoRepository(): AlumnoRepositoryInterface { return new MySQLAlumnoRepository($this->db()); }
-  public function catedraticoRepository(): CatedraticoRepositoryInterface { return new MySQLCatedraticoRepository($this->db()); }
-  // services
-  public function alumnoService(): AlumnoServiceInterface { return new AlumnoService($this->alumnoRepository(), new AlumnoValidator()); }
-  public function catedraticoService(): CatedraticoServiceInterface { return new CatedraticoService($this->catedraticoRepository(), new CatedraticoValidator()); }
-  // controllers
-  public function alumnoController(): AlumnoController { return new AlumnoController($this->alumnoService()); }
-  public function catedraticoController(): CatedraticoController { return new CatedraticoController($this->catedraticoService()); }
+    private ?\mysqli $db = null;
+
+    public function db(): \mysqli {
+        return $this->db ??= Database::getConexion();
+    }
+
+    // Mapper
+    public function alumnoMapper(): AlumnoMapper {
+        return new AlumnoMapper();
+    }
+
+    // Repositorios
+    public function alumnoRepository(): AlumnoRepositoryInterface {
+        return new MySQLAlumnoRepository($this->db());
+    }
+
+    public function catedraticoRepository(): CatedraticoRepositoryInterface {
+        return new MySQLCatedraticoRepository($this->db());
+    }
+
+    // Servicios
+    public function alumnoService(): AlumnoServiceInterface {
+        return new AlumnoService(
+            $this->alumnoRepository(),
+            $this->alumnoMapper(),        // 👈 ahora inyectamos el Mapper
+            new AlumnoValidator()
+        );
+    }
+
+    public function catedraticoService(): CatedraticoServiceInterface {
+        return new CatedraticoService(
+            $this->catedraticoRepository(),
+            new CatedraticoValidator()
+        );
+    }
+
+    // Controladores
+    public function alumnoController(): AlumnoController {
+        return new AlumnoController($this->alumnoService());
+    }
+
+    public function catedraticoController(): CatedraticoController {
+        return new CatedraticoController($this->catedraticoService());
+    }
 }

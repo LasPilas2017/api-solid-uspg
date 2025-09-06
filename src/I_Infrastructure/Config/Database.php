@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 namespace App\I_Infrastructure\Config;
-/** Conexión mysqli a 'uspg' [SRP] */
+/** Conexión mysqli a 'uspg' */
 final class Database {
   public static function getConexion(): \mysqli {
     $conexion = new \mysqli("localhost","root","","uspg");

@@ -1,33 +1,43 @@
 <?php
 declare(strict_types=1);
+
 namespace App\P_Presentation\Http;
-use App\B_Bootstrap\Container;
-use App\S_Shared\Http\JsonResponse;
-/** Router mínimo [SRP][OCP] */
-final class Router {
-  public function __construct(private Container $c) {}
-  public function dispatch(string $method, string $uri): void {
-    $path = parse_url($uri, PHP_URL_PATH) ?: '/';
-    $base = rtrim(str_replace('\\','/', dirname($_SERVER['SCRIPT_NAME'] ?? '')), '/');
-    if ($base !== '' && str_starts_with($path, $base)) { $path = substr($path, strlen($base)) ?: '/'; }
-    // alumnos
-    if ($path === '/alumnos' && $method === 'GET')  { $this->c->alumnoController()->index(); return; }
-    if ($path === '/alumnos' && $method === 'POST') { $this->c->alumnoController()->store(); return; }
-    if (preg_match('#^/alumnos/(\d+)$#',$path,$m)) {
-      $id=(int)$m[1];
-      if ($method==='GET') { $this->c->alumnoController()->show($id); return; }
-      if ($method==='PUT') { $this->c->alumnoController()->update($id); return; }
-      if ($method==='DELETE'){ $this->c->alumnoController()->destroy($id); return; }
+
+final class Router
+{
+    /** @var array<string, array<string, callable>> */
+    private array $routes = [
+        'GET'  => [],
+        'POST' => [],
+        'PUT'  => [],
+        'PATCH'=> [],
+        'DELETE'=> [],
+    ];
+
+    public function get(string $path, callable $handler): void    { $this->routes['GET'][$this->norm($path)] = $handler; }
+    public function post(string $path, callable $handler): void   { $this->routes['POST'][$this->norm($path)] = $handler; }
+    public function put(string $path, callable $handler): void    { $this->routes['PUT'][$this->norm($path)] = $handler; }
+    public function patch(string $path, callable $handler): void  { $this->routes['PATCH'][$this->norm($path)] = $handler; }
+    public function delete(string $path, callable $handler): void { $this->routes['DELETE'][$this->norm($path)] = $handler; }
+
+    public function dispatch(string $method, string $uri): void
+    {
+        $path = $this->norm(parse_url($uri, PHP_URL_PATH) ?? '/');
+        $handler = $this->routes[$method][$path] ?? null;
+
+        if (!$handler) {
+            http_response_code(404);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok'=>false,'error'=>'Not Found','path'=>$path,'method'=>$method]);
+            return;
+        }
+        $handler(); // ejecuta el closure registrado en routes.php
     }
-    // catedraticos
-    if ($path === '/catedraticos' && $method === 'GET')  { $this->c->catedraticoController()->index(); return; }
-    if ($path === '/catedraticos' && $method === 'POST') { $this->c->catedraticoController()->store(); return; }
-    if (preg_match('#^/catedraticos/(\d+)$#',$path,$m)) {
-      $id=(int)$m[1];
-      if ($method==='GET') { $this->c->catedraticoController()->show($id); return; }
-      if ($method==='PUT') { $this->c->catedraticoController()->update($id); return; }
-      if ($method==='DELETE'){ $this->c->catedraticoController()->destroy($id); return; }
+
+    private function norm(string $path): string
+    {
+        // normaliza: sin trailing slash (excepto raíz), y en minúsculas si querés
+        if ($path !== '/' && str_ends_with($path, '/')) $path = rtrim($path, '/');
+        return $path;
     }
-    JsonResponse::notFound();
-  }
 }

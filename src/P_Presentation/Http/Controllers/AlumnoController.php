@@ -3,33 +3,36 @@ declare(strict_types=1);
 
 namespace App\P_Presentation\Http\Controllers;
 
-use App\D_Domain\Services\AlumnoServiceInterface;
+use App\A_Application\Services\AlumnoService;
 use App\D_Domain\DTOs\AlumnoDTO;
-use App\S_Shared\Http\JsonResponse;
 
-/**
- * Controller Alumno [SRP][DIP]
- */
-final class AlumnoController {
-  public function __construct(private AlumnoServiceInterface $service) {}
+final class AlumnoController
+{
+    public function __construct(private AlumnoService $service) {}
 
-  public function index(): void { JsonResponse::ok($this->service->listar()); }
-  public function show(int $id): void { JsonResponse::ok($this->service->obtener($id)); }
+    // GET /alumnos
+    public function index(): void
+    {
+        $data = $this->service->list();
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(200);
+        echo json_encode(['ok' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
+    }
 
-  public function store(): void {
-    $body = json_decode(file_get_contents('php://input'), true) ?? $_POST;
-    $id = $this->service->crear(AlumnoDTO::fromArray($body));
-    JsonResponse::created(['id' => $id]);
-  }
+    // POST /alumnos
+    public function create(): void
+    {
+        $raw  = file_get_contents('php://input') ?: '{}';
+        $body = json_decode($raw, true) ?? [];
 
-  public function update(int $id): void {
-    $body = json_decode(file_get_contents('php://input'), true) ?? [];
-    $this->service->actualizar($id, AlumnoDTO::fromArray($body));
-    JsonResponse::ok(['updated' => true]);
-  }
+        // Construir DTO desde el body
+        $dtoIn = new AlumnoDTO($body);
 
-  public function destroy(int $id): void {
-    $this->service->eliminar($id);
-    JsonResponse::ok(['deleted' => true]);
-  }
+        // Crear y devolver DTO como array
+        $dtoOut = $this->service->create($dtoIn)->toArray();
+
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(201);
+        echo json_encode(['ok' => true, 'data' => $dtoOut], JSON_UNESCAPED_UNICODE);
+    }
 }

@@ -1,31 +1,34 @@
 <?php
 declare(strict_types=1);
-/**
- * Front Controller [SRP]: punto de entrada único.
- * Carga autoload (Composer o manual) y delega al Router [DIP].
- */
-$vendorAutoload = __DIR__ . '/../vendor/autoload.php';
-if (file_exists($vendorAutoload)) {
-  require $vendorAutoload;
-} else {
-  require __DIR__ . '/../src/autoload_manual.php';
-}
 
-use App\P_Presentation\Http\Router;
+ini_set('display_errors', '1');
+error_reporting(E_ALL);
+
+require __DIR__ . '/../vendor/autoload.php';
+
 use App\B_Bootstrap\Container;
-use App\S_Shared\Http\JsonResponse;
-use App\S_Shared\Errors\AppException;
+use App\P_Presentation\Http\Router;
 
+// 1) Crear container y router
 $container = new Container();
-$router    = new Router($container);
+$router    = new Router();
 
-try {
-  $router->dispatch($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);
-} catch (AppException $e) {
-  JsonResponse::error($e->getMessage(), $e->getCode() ?: 400);
-} catch (Throwable $e) {
-    App\S_Shared\Http\JsonResponse::error(
-    $e->getMessage().' @ '.$e->getFile().':'.$e->getLine(),
-    500
-  );
+// 2) Registrar rutas
+require __DIR__ . '/../src/P_Presentation/Http/routes.php';
+
+// 3) Despachar quitando el prefijo base (/api-solid-uspg/public)
+$method = $_SERVER['REQUEST_METHOD'];
+$full   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
+
+// base = carpeta donde vive index.php (p. ej. /api-solid-uspg/public)
+$base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');          // => /api-solid-uspg/public
+$path = $full;
+
+// si el path empieza con el base, se lo quitamos
+if ($base !== '' && str_starts_with($path, $base)) {
+    $path = substr($path, strlen($base));
 }
+if ($path === '') { $path = '/'; }
+
+// 4) Despacho
+$router->dispatch($method, $path);

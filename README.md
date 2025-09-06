@@ -28,4 +28,4 @@ GET http://localhost/api-solid-uspg/public/alumnos
 GET/POST `/alumnos`, GET/PUT/DELETE `/alumnos/{id}`  
 GET/POST `/catedraticos`, GET/PUT/DELETE `/catedraticos/{id}`
 
-Generado: 2025-08-16
+
