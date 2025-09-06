@@ -58,10 +58,10 @@ final class AlumnoService implements AlumnoServiceInterface
         $this->repo->updateById($id, $row); // interface pide void
     }
 
-    /** Eliminar por id */
-    public function delete(int $id): bool
+    /** Eliminar por id (void para cumplir el interface) */
+    public function delete(int $id): void
     {
-        return $this->repo->delete($id);
+        $this->repo->delete($id);
     }
 
     /* ===== Wrappers con los nombres del INTERFACE (español) ===== */
@@ -71,8 +71,8 @@ final class AlumnoService implements AlumnoServiceInterface
         return (int) $out->id;        // el interface pide int (ID)
     }
 
-    public function listar(): array                     { return $this->list(); }
-    public function obtener(int $id): array             { return $this->get($id); }
+    public function listar(): array                          { return $this->list(); }
+    public function obtener(int $id): array                  { return $this->get($id); }
     public function actualizar(int $id, AlumnoDTO $dto): void { $this->update($id, $dto); }
-    public function eliminar(int $id): void             { $this->delete($id); }
+    public function eliminar(int $id): void                  { $this->delete($id); }
 }
