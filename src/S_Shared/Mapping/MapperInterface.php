@@ -1,13 +1,8 @@
 <?php
-namespace S_Shared\Mapping;
+declare(strict_types=1);
 
-/**
- * Contrato genérico para todos los mappers.
- * - fromDTO:      DTO -> Entidad de dominio
- * - toDTO:        Entidad -> DTO
- * - toPersistence:Entidad -> array (columnas BD)
- * - fromPersistence: array (fila BD) -> Entidad
- */
+namespace App\S_Shared\Mapping;
+
 interface MapperInterface
 {
     /** @param mixed $dto */
@@ -16,7 +11,9 @@ interface MapperInterface
     /** @return mixed */
     public function toDTO($entity);
 
+    /** Entidad -> array para BD */
     public function toPersistence($entity): array;
 
+    /** Fila BD -> Entidad */
     public function fromPersistence(array $row);
 }

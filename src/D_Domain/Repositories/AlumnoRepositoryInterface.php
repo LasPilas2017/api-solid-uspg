@@ -1,43 +1,21 @@
 <?php
 declare(strict_types=1);
 
-namespace App\D_Domain\Services;
-
-use App\D_Domain\DTOs\AlumnoDTO;
+namespace App\D_Domain\Repositories;
 
 /**
- * Contrato del servicio de aplicación para Alumno.
- * Trabaja con DTOs (no con entidades) y retorna tipos simples para la capa presentación.
+ * Contrato de persistencia para Alumno.
+ * Usa ARRAYS en lugar de Entidades, porque el Mapper se encarga de traducir.
  */
-interface AlumnoServiceInterface
+interface AlumnoRepositoryInterface
 {
-    /**
-     * Crear un alumno.
-     * Debe retornar el ID generado.
-     */
-    public function crear(AlumnoDTO $dto): int;
+    public function insert(array $data): int;
 
-    /**
-     * Listar todos los alumnos.
-     * Retorna un array de arrays (DTOs serializados) listo para JSON.
-     * @return array<int, array<string, mixed>>
-     */
-    public function listar(): array;
+    public function fetchAll(): array;
 
-    /**
-     * Obtener un alumno por ID.
-     * Si no existe, retornar [].
-     * @return array<string, mixed>
-     */
-    public function obtener(int $id): array;
+    public function findById(int $id): ?array;
 
-    /**
-     * Actualizar un alumno por ID (sin retorno).
-     */
-    public function actualizar(int $id, AlumnoDTO $dto): void;
+    public function updateById(int $id, array $data): void;
 
-    /**
-     * Eliminar un alumno por ID (sin retorno).
-     */
-    public function eliminar(int $id): void;
+    public function delete(int $id): void;
 }

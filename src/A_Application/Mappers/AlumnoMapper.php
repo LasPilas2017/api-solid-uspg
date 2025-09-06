@@ -1,62 +1,73 @@
 <?php
-namespace A_Application\Mappers;
+declare(strict_types=1);
 
-use S_Shared\Mapping\MapperInterface;
-use D_Domain\DTOs\AlumnoDTO;
-use D_Domain\Entities\Alumno;
+namespace App\A_Application\Mappers;
+
+use App\S_Shared\Mapping\MapperInterface;
+use App\D_Domain\DTOs\AlumnoDTO;
+use App\D_Domain\Entities\Alumno;
 
 /**
- * Traduce entre:
- *  - DTO <-> Entidad
- *  - Entidad <-> array para BD (snake_case)
- * Ajustá los nombres de propiedades si tu DTO/Entidad difiere.
+ * Mapper de Alumno:
+ *  - DTO <-> Entidad de dominio
+ *  - Entidad <-> array de persistencia (snake_case)
+ *
+ * NOTA: La Entidad Alumno recibe fechaIngreso como STRING (Y-m-d),
+ * así que aquí SIEMPRE convertimos a string al construir la Entidad.
  */
-class AlumnoMapper implements MapperInterface
+final class AlumnoMapper implements MapperInterface
 {
+    /** @param AlumnoDTO $dto */
     public function fromDTO($dto): Alumno
     {
-        /** @var AlumnoDTO $dto */
+        // usar fecha_ingreso (snake) o fechaIngreso (camel), si no viene usamos hoy
+        $fecha = $dto->fecha_ingreso ?? ($dto->fechaIngreso ?? date('Y-m-d'));
+
         return new Alumno(
             $dto->id ?? null,
-            $dto->nombreCompleto,
-            $dto->carnet,
-            $dto->carrera,
-            new \DateTimeImmutable($dto->fechaIngreso ?? date('Y-m-d'))
+            (string)($dto->nombre ?? ''),
+            (string)($dto->carnet ?? ''),
+            (string)($dto->carrera ?? ''),
+            (string)$fecha // <- STRING
         );
     }
 
+    /** @return AlumnoDTO */
     public function toDTO($entity): AlumnoDTO
-    {
-        /** @var Alumno $entity */
-        return new AlumnoDTO([
-            'id'             => $entity->getId(),
-            'nombreCompleto' => $entity->getNombreCompleto(),
-            'carnet'         => $entity->getCarnet(),
-            'carrera'        => $entity->getCarrera(),
-            'fechaIngreso'   => $entity->getFechaIngreso()->format('Y-m-d'),
-        ]);
-    }
+{
+    /** @var \App\D_Domain\Entities\Alumno $entity */
+    return new AlumnoDTO(
+        $entity->id(),            // ?int
+        $entity->nombre(),        // string
+        $entity->carnet(),        // string
+        $entity->carrera(),       // string
+        (string)$entity->fechaIngreso() // string 'Y-m-d'
+    );
+}
 
+
+    /** Entidad -> array (para repo/persistencia) */
     public function toPersistence($entity): array
     {
         /** @var Alumno $entity */
         return [
-            'id'              => $entity->getId(),
-            'nombre_completo' => $entity->getNombreCompleto(),
-            'carnet'          => $entity->getCarnet(),
-            'carrera'         => $entity->getCarrera(),
-            'fecha_ingreso'   => $entity->getFechaIngreso()->format('Y-m-d'),
+            'id'            => $entity->id(),
+            'nombre'        => $entity->nombre(),
+            'carnet'        => $entity->carnet(),
+            'carrera'       => $entity->carrera(),
+            'fecha_ingreso' => (string)$entity->fechaIngreso(), // <- STRING
         ];
     }
 
+    /** Fila BD -> Entidad */
     public function fromPersistence(array $row): Alumno
     {
         return new Alumno(
             isset($row['id']) ? (int)$row['id'] : null,
-            $row['nombre_completo'] ?? '',
-            $row['carnet'] ?? '',
-            $row['carrera'] ?? '',
-            new \DateTimeImmutable($row['fecha_ingreso'] ?? date('Y-m-d'))
+            (string)($row['nombre'] ?? ''),
+            (string)($row['carnet'] ?? ''),
+            (string)($row['carrera'] ?? ''),
+            (string)($row['fecha_ingreso'] ?? date('Y-m-d')) // <- STRING
         );
     }
 }
