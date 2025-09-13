@@ -6,62 +6,80 @@ namespace App\B_Bootstrap;
 use App\I_Infrastructure\Config\Database;
 use App\I_Infrastructure\Persistence\MySQLAlumnoRepository;
 use App\I_Infrastructure\Persistence\MySQLCatedraticoRepository;
-use App\A_Application\Services\AlumnoService;
-use App\A_Application\Services\CatedraticoService;
-use App\A_Application\Validators\AlumnoValidator;
-use App\A_Application\Validators\CatedraticoValidator;
-use App\D_Domain\Repositories\AlumnoRepositoryInterface;
-use App\D_Domain\Repositories\CatedraticoRepositoryInterface;
-use App\D_Domain\Services\AlumnoServiceInterface;
-use App\D_Domain\Services\CatedraticoServiceInterface;
-use App\P_Presentation\Http\Controllers\AlumnoController;
-use App\P_Presentation\Http\Controllers\CatedraticoController;
+
 use App\A_Application\Mappers\AlumnoMapper;
 
-/** Composition Root / Contenedor [DIP] */
-final class Container {
+use App\A_Application\Services\AlumnoService;
+use App\D_Domain\Services\AlumnoServiceInterface;
+
+use App\A_Application\Services\CatedraticoService;
+use App\D_Domain\Services\CatedraticoServiceInterface;
+
+use App\D_Domain\Repositories\AlumnoRepositoryInterface;
+use App\D_Domain\Repositories\CatedraticoRepositoryInterface;
+
+use App\P_Presentation\Http\Controllers\AlumnoController;
+use App\P_Presentation\Http\Controllers\CatedraticoController;
+
+/** composition root / contenedor (dip)
+ *  acá solo cableo dependencias, sin lógica extra
+ */
+final class Container
+{
     private ?\mysqli $db = null;
 
-    public function db(): \mysqli {
+    /** conexión compartida (singleton simple en el container) */
+    public function db(): \mysqli
+    {
         return $this->db ??= Database::getConexion();
     }
 
-    // Mapper
-    public function alumnoMapper(): AlumnoMapper {
+    // ===== mappers =====
+    public function alumnoMapper(): AlumnoMapper
+    {
         return new AlumnoMapper();
     }
 
-    // Repositorios
-    public function alumnoRepository(): AlumnoRepositoryInterface {
+    // ===== repositorios =====
+    public function alumnoRepository(): AlumnoRepositoryInterface
+    {
         return new MySQLAlumnoRepository($this->db());
     }
 
-    public function catedraticoRepository(): CatedraticoRepositoryInterface {
+    // dejamos catedráticos cableado, aunque aún no lo migremos
+    public function catedraticoRepository(): CatedraticoRepositoryInterface
+    {
         return new MySQLCatedraticoRepository($this->db());
     }
 
-    // Servicios
-    public function alumnoService(): AlumnoServiceInterface {
+    // ===== servicios =====
+    /** alumnos: ahora el service recibe repo + mapper (sin validador por ahora) */
+    public function alumnoService(): AlumnoServiceInterface
+    {
         return new AlumnoService(
             $this->alumnoRepository(),
-            $this->alumnoMapper(),        // 👈 ahora inyectamos el Mapper
-            new AlumnoValidator()
+            $this->alumnoMapper()
         );
     }
 
-    public function catedraticoService(): CatedraticoServiceInterface {
+    /** catedráticos: se mantiene como lo tenías (lo migraremos después) */
+    public function catedraticoService(): CatedraticoServiceInterface
+    {
         return new CatedraticoService(
-            $this->catedraticoRepository(),
-            new CatedraticoValidator()
+            $this->catedraticoRepository()
         );
     }
 
-    // Controladores
-    public function alumnoController(): AlumnoController {
+    // ===== controladores =====
+    /** controlador http de alumnos (recibe la interface del service) */
+    public function alumnoController(): AlumnoController
+    {
         return new AlumnoController($this->alumnoService());
     }
 
-    public function catedraticoController(): CatedraticoController {
+    /** controlador http de catedráticos (por ahora queda igual) */
+    public function catedraticoController(): CatedraticoController
+    {
         return new CatedraticoController($this->catedraticoService());
     }
 }

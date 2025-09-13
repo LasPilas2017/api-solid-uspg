@@ -1,34 +1,26 @@
 <?php
 declare(strict_types=1);
 
-ini_set('display_errors', '1');
-error_reporting(E_ALL);
-
-require __DIR__ . '/../vendor/autoload.php';
-
 use App\B_Bootstrap\Container;
 use App\P_Presentation\Http\Router;
 
-// 1) Crear container y router
+require_once __DIR__ . '/../vendor/autoload.php';
+
+// instancio el container
 $container = new Container();
-$router    = new Router();
 
-// 2) Registrar rutas
-require __DIR__ . '/../src/P_Presentation/Http/routes.php';
+// obtengo el controller de alumnos
+$alumnos = $container->alumnoController();
 
-// 3) Despachar quitando el prefijo base (/api-solid-uspg/public)
-$method = $_SERVER['REQUEST_METHOD'];
-$full   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH) ?? '/';
+// router minimal
+$router = new Router();
 
-// base = carpeta donde vive index.php (p. ej. /api-solid-uspg/public)
-$base = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');          // => /api-solid-uspg/public
-$path = $full;
+// rutas de alumnos (rest)
+$router->add('GET',    '/api-solid-uspg/public/alumnos',               fn()       => $alumnos->index());
+$router->add('GET',    '/api-solid-uspg/public/alumnos/(\d+)',         fn($id)    => $alumnos->show((int)$id));
+$router->add('POST',   '/api-solid-uspg/public/alumnos',               fn()       => $alumnos->store());
+$router->add('PUT',    '/api-solid-uspg/public/alumnos/(\d+)',         fn($id)    => $alumnos->update((int)$id));
+$router->add('DELETE', '/api-solid-uspg/public/alumnos/(\d+)',         fn($id)    => $alumnos->destroy((int)$id));
 
-// si el path empieza con el base, se lo quitamos
-if ($base !== '' && str_starts_with($path, $base)) {
-    $path = substr($path, strlen($base));
-}
-if ($path === '') { $path = '/'; }
-
-// 4) Despacho
-$router->dispatch($method, $path);
+// despacha
+$router->dispatch($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);

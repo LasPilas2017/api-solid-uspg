@@ -3,13 +3,14 @@ declare(strict_types=1);
 
 namespace App\D_Domain\Services;
 
-use App\D_Domain\DTOs\AlumnoDTO;
+use App\D_Domain\DTOs\AlumnoRequestDTO;
+use App\D_Domain\DTOs\AlumnoResponseDTO;
 
 interface AlumnoServiceInterface
 {
-    public function crear(AlumnoDTO $dto): int;
-    public function listar(): array;
-    public function obtener(int $id): array;
-    public function actualizar(int $id, AlumnoDTO $dto): void;
-    public function eliminar(int $id): void;
+    public function create(AlumnoRequestDTO $in): AlumnoResponseDTO;
+    public function list(): array;
+    public function getById(int $id): ?AlumnoResponseDTO;
+    public function update(int $id, AlumnoRequestDTO $in): ?AlumnoResponseDTO;
+    public function delete(int $id): bool;
 }

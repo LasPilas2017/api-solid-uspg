@@ -3,83 +3,113 @@ declare(strict_types=1);
 
 namespace App\P_Presentation\Http\Controllers;
 
-use App\A_Application\Services\AlumnoService;
-use App\D_Domain\DTOs\AlumnoDTO;
+use App\D_Domain\Services\AlumnoServiceInterface;
+use App\D_Domain\DTOs\AlumnoRequestDTO;
 
+/**
+ * controlador http de alumnos
+ * - acá no meto lógica de negocio ni sql
+ * - armo el requestdto desde el body, llamo al service, y devuelvo responsedto
+ * - dejo las respuestas con el mismo formato que ya venías usando: { ok, data }
+ */
 final class AlumnoController
 {
-    public function __construct(private AlumnoService $service) {}
+    public function __construct(private AlumnoServiceInterface $service) {}
 
     // GET /alumnos
     public function index(): void
     {
-        $data = $this->service->list();
-        header('Content-Type: application/json; charset=utf-8');
-        http_response_code(200);
-        echo json_encode(['ok' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
+        $data = $this->service->list(); // array de alumnoresponsedto
+        $this->json(['ok' => true, 'data' => $data], 200);
+    }
+
+    // GET /alumnos/{id}
+    public function show(int $id): void
+    {
+        $dto = $this->service->getById($id); // alumnoresponsedto | null
+        if (!$dto) {
+            $this->json(['ok' => false, 'data' => []], 404);
+            return;
+        }
+        $this->json(['ok' => true, 'data' => $dto], 200);
     }
 
     // POST /alumnos
-    public function create(): void
-{
-    $raw  = file_get_contents('php://input') ?: '{}';
-    $body = json_decode($raw, true) ?? [];
+    public function store(): void
+    {
+        $body = $this->jsonInput();
 
-    // Construir DTO con ARGUMENTOS POSICIONALES (no array)
-    $dtoIn = new \App\D_Domain\DTOs\AlumnoDTO(
-        null, // id
-        (string)($body['nombre'] ?? ''),
-        (string)($body['carnet'] ?? ''),
-        (string)($body['carrera'] ?? ''),
-        (string)($body['fecha_ingreso'] ?? date('Y-m-d'))
-    );
+        // ahora trabajamos con nombre + email (el modelo actual de alumnos)
+        if (!isset($body['nombre'], $body['email'])) {
+            $this->json(['ok' => false, 'data' => ['error' => 'nombre y email son requeridos']], 422);
+            return;
+        }
 
-    $dtoOut = $this->service->create($dtoIn)->toArray();
+        $in = new AlumnoRequestDTO();
+        $in->nombre = (string) $body['nombre'];
+        $in->email  = (string) $body['email'];
+        $in->actor  = $this->actor(); // x-user o "system"
 
-    header('Content-Type: application/json; charset=utf-8');
-    http_response_code(201);
-    echo json_encode(['ok' => true, 'data' => $dtoOut], JSON_UNESCAPED_UNICODE);
-}
-public function show(int $id): void
-{
-    $data = $this->service->obtener($id); // array (vacío si no existe)
-    $status = empty($data) ? 404 : 200;
-    header('Content-Type: application/json; charset=utf-8');
-    http_response_code($status);
-    echo json_encode(['ok' => !empty($data), 'data' => $data], JSON_UNESCAPED_UNICODE);
-}
+        $out = $this->service->create($in); // alumnoresponsedto
+        $this->json(['ok' => true, 'data' => $out], 201);
+    }
 
-public function update(int $id): void
-{
-    $raw  = file_get_contents('php://input') ?: '{}';
-    $body = json_decode($raw, true) ?? [];
+    // PUT /alumnos/{id}
+    public function update(int $id): void
+    {
+        $body = $this->jsonInput();
 
-    // DTO posicional (tu DTO no acepta array en el constructor)
-    $dto = new \App\D_Domain\DTOs\AlumnoDTO(
-        $id,
-        (string)($body['nombre'] ?? ''),
-        (string)($body['carnet'] ?? ''),
-        (string)($body['carrera'] ?? ''),
-        (string)($body['fecha_ingreso'] ?? date('Y-m-d'))
-    );
+        if (!isset($body['nombre'], $body['email'])) {
+            $this->json(['ok' => false, 'data' => ['error' => 'nombre y email son requeridos']], 422);
+            return;
+        }
 
-    // Ejecuta actualización (void)
-    $this->service->actualizar($id, $dto);
+        $in = new AlumnoRequestDTO();
+        $in->nombre = (string) $body['nombre'];
+        $in->email  = (string) $body['email'];
+        $in->actor  = $this->actor(); // x-user o "system"
 
-    // Trae lo que quedó en BD y lo devuelve (si no existe, array vacío)
-    $data = $this->service->obtener($id);
+        $out = $this->service->update($id, $in); // alumnoresponsedto | null
+        if (!$out) {
+            $this->json(['ok' => false, 'data' => []], 404);
+            return;
+        }
+        $this->json(['ok' => true, 'data' => $out], 200);
+    }
 
-    header('Content-Type: application/json; charset=utf-8');
-    http_response_code(empty($data) ? 404 : 200);
-    echo json_encode(['ok' => !empty($data), 'data' => $data], JSON_UNESCAPED_UNICODE);
-}
+    // DELETE /alumnos/{id}
+    public function destroy(int $id): void
+    {
+        $ok = $this->service->delete($id);
+        if (!$ok) {
+            $this->json(['ok' => false, 'data' => []], 404);
+            return;
+        }
+        // sin body, pero mantengo el esquema por consistencia
+        $this->json(['ok' => true, 'data' => []], 204);
+    }
 
+    // ===== helpers =====
 
-public function destroy(int $id): void
-{
-    $this->service->eliminar($id); // void
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['ok' => true]);
-}
+    // leo json del body y devuelvo array seguro
+    private function jsonInput(): array
+    {
+        $raw = file_get_contents('php://input') ?: '';
+        $data = json_decode($raw, true);
+        return is_array($data) ? $data : [];
+    }
 
+    // saco el actor desde el header x-user
+    private function actor(): string
+    {
+        return $_SERVER['HTTP_X_USER'] ?? 'system';
+    }
+
+    // respuesta json estándar
+    private function json(mixed $data, int $status = 200): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code($status);
+        echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    }
 }

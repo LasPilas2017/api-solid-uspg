@@ -3,71 +3,89 @@ declare(strict_types=1);
 
 namespace App\A_Application\Mappers;
 
-use App\S_Shared\Mapping\MapperInterface;
-use App\D_Domain\DTOs\AlumnoDTO;
+use App\D_Domain\DTOs\AlumnoRequestDTO;
+use App\D_Domain\DTOs\AlumnoResponseDTO;
 use App\D_Domain\Entities\Alumno;
 
-/**
- * Mapper de Alumno:
- *  - DTO <-> Entidad de dominio
- *  - Entidad <-> array de persistencia (snake_case)
- *
- * NOTA: La Entidad Alumno recibe fechaIngreso como STRING (Y-m-d),
- * así que aquí SIEMPRE convertimos a string al construir la Entidad.
- */
-final class AlumnoMapper implements MapperInterface
+final class AlumnoMapper
 {
-    /** @param AlumnoDTO $dto */
-    public function fromDTO($dto): Alumno
+    /**
+     * fromRequestDTO: convierto lo que entra del cliente (requestdto) a mi entidad de dominio
+     * - si me pasan $base es porque estoy en update y quiero conservar lo ya existente (created_at/by, etc.)
+     * - si no hay $base, asumo que es create y yo seteo created_at y created_by
+     */
+    public function fromRequestDTO(AlumnoRequestDTO $dto, ?Alumno $base = null): Alumno
     {
-        // usar fecha_ingreso (snake) o fechaIngreso (camel), si no viene usamos hoy
-        $fecha = $dto->fecha_ingreso ?? ($dto->fechaIngreso ?? date('Y-m-d'));
+        // si no hay entidad base, estoy creando. dejo created_at ahora y created_by con el actor (o system)
+        $createdAt = $base?->createdAt() ?? date('Y-m-d H:i:s');
+        $createdBy = $base?->createdBy() ?? ($dto->actor ?? 'system');
+
+        // en update quiero respetar lo que ya estaba creado y solo marcar quién actualiza
+        $updatedAt = $base?->updatedAt(); // mysql lo puede setear con on update, igual acá lo dejo pasar
+        $updatedBy = $dto->actor ?? $base?->updatedBy();
 
         return new Alumno(
-            $dto->id ?? null,
-            (string)($dto->nombre ?? ''),
-            (string)($dto->carnet ?? ''),
-            (string)($dto->carrera ?? ''),
-            (string)$fecha // <- STRING
+            id: $base?->id() ?? null,
+            nombre: trim($dto->nombre),
+            email: strtolower(trim($dto->email)),
+            created_at: $createdAt,
+            updated_at: $updatedAt,
+            created_by: $createdBy,
+            updated_by: $updatedBy,
+            deleted_at: $base?->deletedAt()
         );
     }
 
-    /** @return AlumnoDTO */
-    public function toDTO($entity): AlumnoDTO
-{
-    /** @var \App\D_Domain\Entities\Alumno $entity */
-    return new AlumnoDTO(
-        $entity->id(),            // ?int
-        $entity->nombre(),        // string
-        $entity->carnet(),        // string
-        $entity->carrera(),       // string
-        (string)$entity->fechaIngreso() // string 'Y-m-d'
-    );
-}
-
-
-    /** Entidad -> array (para repo/persistencia) */
-    public function toPersistence($entity): array
+    /**
+     * toResponseDTO: lo que siempre devuelvo al cliente (incluye auditoría)
+     * - acá no hago lógica, solo empaqueto los datos de la entidad para el response
+     */
+    public function toResponseDTO(Alumno $e): AlumnoResponseDTO
     {
-        /** @var Alumno $entity */
+        $out = new AlumnoResponseDTO();
+        $out->id         = (int)$e->id();
+        $out->nombre     = $e->nombre();
+        $out->email      = $e->email();
+        $out->created_at = $e->createdAt();
+        $out->updated_at = $e->updatedAt();
+        $out->created_by = $e->createdBy();
+        $out->updated_by = $e->updatedBy();
+        $out->deleted_at = $e->deletedAt();
+        return $out;
+    }
+
+    /**
+     * toPersistence: dejo la entidad lista para que el repositorio la guarde con mysqli
+     * - las claves deben coincidir con los nombres de columnas en la tabla
+     */
+    public function toPersistence(Alumno $e): array
+    {
         return [
-            'id'            => $entity->id(),
-            'nombre'        => $entity->nombre(),
-            'carnet'        => $entity->carnet(),
-            'carrera'       => $entity->carrera(),
-            'fecha_ingreso' => (string)$entity->fechaIngreso(), // <- STRING
+            'nombre'     => $e->nombre(),
+            'email'      => $e->email(),
+            'created_at' => $e->createdAt(),
+            'updated_at' => $e->updatedAt(),
+            'created_by' => $e->createdBy(),
+            'updated_by' => $e->updatedBy(),
+            'deleted_at' => $e->deletedAt(),
         ];
     }
 
-    /** Fila BD -> Entidad */
+    /**
+     * fromPersistence: convierto una fila cruda de mysql (fetch_assoc) a la entidad de dominio
+     * - acá asumo que el repo ya seleccionó todas las columnas necesarias
+     */
     public function fromPersistence(array $row): Alumno
     {
         return new Alumno(
-            isset($row['id']) ? (int)$row['id'] : null,
-            (string)($row['nombre'] ?? ''),
-            (string)($row['carnet'] ?? ''),
-            (string)($row['carrera'] ?? ''),
-            (string)($row['fecha_ingreso'] ?? date('Y-m-d')) // <- STRING
+            id: (int)$row['id'],
+            nombre: (string)$row['nombre'],
+            email: (string)$row['email'],
+            created_at: (string)$row['created_at'],
+            updated_at: $row['updated_at'] ?? null,
+            created_by: $row['created_by'] ?? null,
+            updated_by: $row['updated_by'] ?? null,
+            deleted_at: $row['deleted_at'] ?? null
         );
     }
 }

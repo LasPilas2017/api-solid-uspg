@@ -3,19 +3,11 @@ declare(strict_types=1);
 
 namespace App\D_Domain\Repositories;
 
-/**
- * Contrato de persistencia para Alumno.
- * Usa ARRAYS en lugar de Entidades, porque el Mapper se encarga de traducir.
- */
 interface AlumnoRepositoryInterface
 {
-    public function insert(array $data): int;
-
-    public function fetchAll(): array;
-
+    public function insert(array $row): int;
+    public function findAll(): array;
     public function findById(int $id): ?array;
-
-    public function updateById(int $id, array $data): void;
-
-    public function delete(int $id): void;
+    public function update(int $id, array $row): bool;
+    public function delete(int $id): bool; // ← bool
 }
