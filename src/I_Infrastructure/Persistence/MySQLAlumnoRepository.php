@@ -4,104 +4,126 @@ declare(strict_types=1);
 namespace App\I_Infrastructure\Persistence;
 
 use App\D_Domain\Repositories\AlumnoRepositoryInterface;
+use mysqli;
 
 /**
- * Repositorio MySQLi que TRABAJA con ARRAYS (no entidades),
- * para acoplarse al patrón Mapper.
- *
- * Columnas: id, nombre, carnet, carrera, fecha_ingreso
+ * repo mysql de alumnos (mysqli)
+ * - acá solo hablo en términos de arrays y sql
+ * - las conversiones entidad/dto las hace el mapper, no yo
+ * - incluyo columnas de auditoría en select/insert/update
  */
 final class MySQLAlumnoRepository implements AlumnoRepositoryInterface
 {
-    public function __construct(private \mysqli $db) {}
+    public function __construct(private mysqli $cn) {}
 
     /**
-     * Inserta un alumno.
-     * Espera keys: nombre, carnet, carrera, fecha_ingreso (YYYY-MM-DD)
+     * insert: guardo un alumno nuevo
+     * espero un array con claves que coinciden con las columnas
+     * uso created_at y created_by; updated_at lo gestiona mysql con on update
      */
-    public function insert(array $data): int
+    public function insert(array $row): int
     {
-        $stmt = $this->db->prepare(
-            "INSERT INTO alumnos (nombre, carnet, carrera, fecha_ingreso)
-             VALUES (?, ?, ?, ?)"
+        $sql = "insert into alumnos (nombre, email, created_at, created_by)
+                values (?,?,?,?)";
+        $stmt = $this->cn->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('error al preparar insert: ' . $this->cn->error);
+        }
+
+        $stmt->bind_param(
+            "ssss",
+            $row['nombre'],
+            $row['email'],
+            $row['created_at'],
+            $row['created_by']
         );
 
-        $nombre        = $data['nombre']        ?? '';
-        $carnet        = $data['carnet']        ?? '';
-        $carrera       = $data['carrera']       ?? '';
-        $fechaIngreso  = $data['fecha_ingreso'] ?? date('Y-m-d');
-
-        $stmt->bind_param("ssss", $nombre, $carnet, $carrera, $fechaIngreso);
         $stmt->execute();
-
-        $id = (int)$this->db->insert_id;
+        $id = $stmt->insert_id;
         $stmt->close();
-
         return $id;
     }
 
     /**
-     * Devuelve todas las filas como arrays asociativos.
-     * @return array<int, array<string, mixed>>
+     * findAll: traigo todo, incluyendo auditoría
      */
-    public function fetchAll(): array
+    public function findAll(): array
     {
-        $res = $this->db->query(
-            "SELECT id, nombre, carnet, carrera, fecha_ingreso
-             FROM alumnos
-             ORDER BY id DESC"
-        );
-
-        return $res ? $res->fetch_all(MYSQLI_ASSOC) : [];
+        $sql = "select id, nombre, email,
+                       created_at, updated_at, created_by, updated_by, deleted_at
+                from alumnos
+                order by id desc";
+        $res = $this->cn->query($sql);
+        if (!$res) return [];
+        return $res->fetch_all(MYSQLI_ASSOC);
     }
 
     /**
-     * Encontrar por ID como array asociativo.
+     * findById: una fila por id, con auditoría
      */
     public function findById(int $id): ?array
     {
-        $stmt = $this->db->prepare(
-            "SELECT id, nombre, carnet, carrera, fecha_ingreso
-             FROM alumnos WHERE id = ?"
-        );
+        $sql = "select id, nombre, email,
+                       created_at, updated_at, created_by, updated_by, deleted_at
+                from alumnos
+                where id = ?";
+        $stmt = $this->cn->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('error al preparar select by id: ' . $this->cn->error);
+        }
+
         $stmt->bind_param("i", $id);
         $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
+        $row = $stmt->get_result()->fetch_assoc() ?: null;
         $stmt->close();
-
-        return $row ?: null;
+        return $row;
     }
 
     /**
-     * Actualizar por ID usando array.
-     * Espera keys: nombre, carnet, carrera, fecha_ingreso
+     * update: actualizo datos básicos y quién actualizó
+     * dejo que mysql llene updated_at con on update current_timestamp
      */
-    public function updateById(int $id, array $data): void
+    public function update(int $id, array $row): bool
     {
-        $stmt = $this->db->prepare(
-            "UPDATE alumnos
-             SET nombre = ?, carnet = ?, carrera = ?, fecha_ingreso = ?
-             WHERE id = ?"
+        $sql = "update alumnos
+                   set nombre = ?,
+                       email = ?,
+                       updated_by = ?
+                 where id = ?";
+        $stmt = $this->cn->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('error al preparar update: ' . $this->cn->error);
+        }
+
+        $stmt->bind_param(
+            "sssi",
+            $row['nombre'],
+            $row['email'],
+            $row['updated_by'],
+            $id
         );
 
-        $nombre       = $data['nombre']        ?? '';
-        $carnet       = $data['carnet']        ?? '';
-        $carrera      = $data['carrera']       ?? '';
-        $fechaIngreso = $data['fecha_ingreso'] ?? date('Y-m-d');
-
-        $stmt->bind_param("ssssi", $nombre, $carnet, $carrera, $fechaIngreso, $id);
-        $stmt->execute();
+        $ok = $stmt->execute();
         $stmt->close();
+        // uso >= 0 porque puede no cambiar filas pero igual ser válido
+        return $ok && $this->cn->affected_rows >= 0;
     }
 
     /**
-     * Eliminar por ID.
+     * delete: borrado duro por ahora (no uso deleted_at)
+     * si luego hacemos soft delete, acá solo pondría deleted_at = now()
      */
-    public function delete(int $id): void
+    public function delete(int $id): bool
     {
-        $stmt = $this->db->prepare("DELETE FROM alumnos WHERE id = ?");
+        $sql = "delete from alumnos where id = ?";
+        $stmt = $this->cn->prepare($sql);
+        if (!$stmt) {
+            throw new \RuntimeException('error al preparar delete: ' . $this->cn->error);
+        }
+
         $stmt->bind_param("i", $id);
-        $stmt->execute();
+        $ok = $stmt->execute();
         $stmt->close();
+        return $ok && $this->cn->affected_rows >= 0;
     }
 }
