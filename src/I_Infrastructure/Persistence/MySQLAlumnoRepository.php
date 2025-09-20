@@ -45,13 +45,14 @@ final class MySQLAlumnoRepository implements AlumnoRepositoryInterface
     }
 
     /**
-     * findAll: traigo todo, incluyendo auditoría
+     * findAll: traigo todo, incluyendo auditoría (solo no eliminados)
      */
     public function findAll(): array
     {
         $sql = "select id, nombre, email,
                        created_at, updated_at, created_by, updated_by, deleted_at
                 from alumnos
+                where deleted_at is null
                 order by id desc";
         $res = $this->cn->query($sql);
         if (!$res) return [];
@@ -59,14 +60,14 @@ final class MySQLAlumnoRepository implements AlumnoRepositoryInterface
     }
 
     /**
-     * findById: una fila por id, con auditoría
+     * findById: una fila por id, con auditoría (solo no eliminados)
      */
     public function findById(int $id): ?array
     {
         $sql = "select id, nombre, email,
                        created_at, updated_at, created_by, updated_by, deleted_at
                 from alumnos
-                where id = ?";
+                where id = ? and deleted_at is null";
         $stmt = $this->cn->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('error al preparar select by id: ' . $this->cn->error);
@@ -89,7 +90,7 @@ final class MySQLAlumnoRepository implements AlumnoRepositoryInterface
                    set nombre = ?,
                        email = ?,
                        updated_by = ?
-                 where id = ?";
+                 where id = ? and deleted_at is null";
         $stmt = $this->cn->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('error al preparar update: ' . $this->cn->error);
@@ -110,12 +111,11 @@ final class MySQLAlumnoRepository implements AlumnoRepositoryInterface
     }
 
     /**
-     * delete: borrado duro por ahora (no uso deleted_at)
-     * si luego hacemos soft delete, acá solo pondría deleted_at = now()
+     * delete: soft delete - marco como eliminado
      */
     public function delete(int $id): bool
     {
-        $sql = "delete from alumnos where id = ?";
+        $sql = "update alumnos set deleted_at = now() where id = ? and deleted_at is null";
         $stmt = $this->cn->prepare($sql);
         if (!$stmt) {
             throw new \RuntimeException('error al preparar delete: ' . $this->cn->error);

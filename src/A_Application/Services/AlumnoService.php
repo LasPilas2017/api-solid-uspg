@@ -6,6 +6,7 @@ namespace App\A_Application\Services;
 use App\D_Domain\DTOs\AlumnoRequestDTO;
 use App\D_Domain\DTOs\AlumnoResponseDTO;
 use App\A_Application\Mappers\AlumnoMapper;
+use App\A_Application\Validators\AlumnoValidator;
 use App\D_Domain\Repositories\AlumnoRepositoryInterface;
 use App\D_Domain\Services\AlumnoServiceInterface;
 
@@ -18,7 +19,8 @@ final class AlumnoService implements AlumnoServiceInterface
 {
     public function __construct(
         private AlumnoRepositoryInterface $repo,
-        private AlumnoMapper $mapper
+        private AlumnoMapper $mapper,
+        private AlumnoValidator $validator
     ) {}
 
     /**
@@ -29,6 +31,12 @@ final class AlumnoService implements AlumnoServiceInterface
      */
     public function create(AlumnoRequestDTO $in): AlumnoResponseDTO
     {
+        // validar datos de entrada
+        $this->validator->validateCreate([
+            'nombre' => $in->nombre,
+            'email' => $in->email
+        ]);
+        
         $entidad = $this->mapper->fromRequestDTO($in);
         $row     = $this->mapper->toPersistence($entidad);
         $id      = $this->repo->insert($row);
@@ -80,6 +88,12 @@ final class AlumnoService implements AlumnoServiceInterface
         $current = $this->repo->findById($id);
         if (!$current) return null;
 
+        // validar datos de entrada
+        $this->validator->validateUpdate([
+            'nombre' => $in->nombre,
+            'email' => $in->email
+        ]);
+
         $base = $this->mapper->fromPersistence($current);
         $entidad = $this->mapper->fromRequestDTO($in, $base);
         $row = $this->mapper->toPersistence($entidad);
@@ -94,8 +108,7 @@ final class AlumnoService implements AlumnoServiceInterface
 
     /**
      * delete:
-     * - por ahora es borrado duro
-     * - si después usamos soft delete, acá solo llamo a repo->softDelete
+     * - soft delete implementado
      */
     public function delete(int $id): bool
     {

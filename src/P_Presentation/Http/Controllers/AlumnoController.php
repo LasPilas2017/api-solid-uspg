@@ -5,6 +5,7 @@ namespace App\P_Presentation\Http\Controllers;
 
 use App\D_Domain\Services\AlumnoServiceInterface;
 use App\D_Domain\DTOs\AlumnoRequestDTO;
+use App\S_Shared\Errors\ValidationException;
 
 /**
  * controlador http de alumnos
@@ -37,44 +38,56 @@ final class AlumnoController
     // POST /alumnos
     public function store(): void
     {
-        $body = $this->jsonInput();
+        try {
+            $body = $this->jsonInput();
 
-        // ahora trabajamos con nombre + email (el modelo actual de alumnos)
-        if (!isset($body['nombre'], $body['email'])) {
-            $this->json(['ok' => false, 'data' => ['error' => 'nombre y email son requeridos']], 422);
-            return;
+            // ahora trabajamos con nombre + email (el modelo actual de alumnos)
+            if (!isset($body['nombre'], $body['email'])) {
+                $this->json(['ok' => false, 'data' => ['error' => 'nombre y email son requeridos']], 422);
+                return;
+            }
+
+            $in = new AlumnoRequestDTO();
+            $in->nombre = (string) $body['nombre'];
+            $in->email  = (string) $body['email'];
+            $in->actor  = $this->actor(); // x-user o "system"
+
+            $out = $this->service->create($in); // alumnoresponsedto
+            $this->json(['ok' => true, 'data' => $out], 201);
+        } catch (ValidationException $e) {
+            $this->json(['ok' => false, 'data' => ['error' => $e->getMessage()]], 422);
+        } catch (\Exception $e) {
+            $this->json(['ok' => false, 'data' => ['error' => 'Error interno del servidor']], 500);
         }
-
-        $in = new AlumnoRequestDTO();
-        $in->nombre = (string) $body['nombre'];
-        $in->email  = (string) $body['email'];
-        $in->actor  = $this->actor(); // x-user o "system"
-
-        $out = $this->service->create($in); // alumnoresponsedto
-        $this->json(['ok' => true, 'data' => $out], 201);
     }
 
     // PUT /alumnos/{id}
     public function update(int $id): void
     {
-        $body = $this->jsonInput();
+        try {
+            $body = $this->jsonInput();
 
-        if (!isset($body['nombre'], $body['email'])) {
-            $this->json(['ok' => false, 'data' => ['error' => 'nombre y email son requeridos']], 422);
-            return;
+            if (!isset($body['nombre'], $body['email'])) {
+                $this->json(['ok' => false, 'data' => ['error' => 'nombre y email son requeridos']], 422);
+                return;
+            }
+
+            $in = new AlumnoRequestDTO();
+            $in->nombre = (string) $body['nombre'];
+            $in->email  = (string) $body['email'];
+            $in->actor  = $this->actor(); // x-user o "system"
+
+            $out = $this->service->update($id, $in); // alumnoresponsedto | null
+            if (!$out) {
+                $this->json(['ok' => false, 'data' => []], 404);
+                return;
+            }
+            $this->json(['ok' => true, 'data' => $out], 200);
+        } catch (ValidationException $e) {
+            $this->json(['ok' => false, 'data' => ['error' => $e->getMessage()]], 422);
+        } catch (\Exception $e) {
+            $this->json(['ok' => false, 'data' => ['error' => 'Error interno del servidor']], 500);
         }
-
-        $in = new AlumnoRequestDTO();
-        $in->nombre = (string) $body['nombre'];
-        $in->email  = (string) $body['email'];
-        $in->actor  = $this->actor(); // x-user o "system"
-
-        $out = $this->service->update($id, $in); // alumnoresponsedto | null
-        if (!$out) {
-            $this->json(['ok' => false, 'data' => []], 404);
-            return;
-        }
-        $this->json(['ok' => true, 'data' => $out], 200);
     }
 
     // DELETE /alumnos/{id}

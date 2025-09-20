@@ -3,60 +3,117 @@ declare(strict_types=1);
 
 namespace App\A_Application\Services;
 
-use App\D_Domain\Services\CatedraticoServiceInterface;
-use App\D_Domain\Repositories\CatedraticoRepositoryInterface;
-use App\D_Domain\DTOs\CatedraticoDTO;
-use App\D_Domain\Entities\Catedratico;
+use App\D_Domain\DTOs\CatedraticoRequestDTO;
+use App\D_Domain\DTOs\CatedraticoResponseDTO;
+use App\A_Application\Mappers\CatedraticoMapper;
 use App\A_Application\Validators\CatedraticoValidator;
-use App\S_Shared\Errors\AppException;
+use App\D_Domain\Repositories\CatedraticoRepositoryInterface;
+use App\D_Domain\Services\CatedraticoServiceInterface;
 
 /**
- * Servicio Catedratico [SRP]
+ * servicio de catedráticos
+ * - acá orquesto el caso de uso usando repo + mapper
+ * - no hago sql directo ni json acá; solo lógica de aplicación
  */
-final class CatedraticoService implements CatedraticoServiceInterface {
-  public function __construct(
-    private CatedraticoRepositoryInterface $repo,
-    private CatedraticoValidator $validator
-  ) {}
+final class CatedraticoService implements CatedraticoServiceInterface
+{
+    public function __construct(
+        private CatedraticoRepositoryInterface $repo,
+        private CatedraticoMapper $mapper,
+        private CatedraticoValidator $validator
+    ) {}
 
-  public function listar(): array {
-    return array_map(
-      fn(Catedratico $c) => [
-        'id' => $c->id(),
-        'nombre' => $c->nombre(),
-        'especialidad' => $c->especialidad(),
-        'correo' => $c->correo(),
-      ],
-      $this->repo->all()
-    );
-  }
+    /**
+     * create:
+     * - mapeo del requestdto a entidad (el mapper setea created_at/by)
+     * - convierto a array para repo->insert
+     * - leo de vuelta desde la bd para devolver el responsedto con auditoría real
+     */
+    public function create(CatedraticoRequestDTO $in): CatedraticoResponseDTO
+    {
+        // validar datos de entrada
+        $this->validator->validateCreate([
+            'nombre' => $in->nombre,
+            'especialidad' => $in->especialidad,
+            'correo' => $in->correo
+        ]);
+        
+        $entidad = $this->mapper->fromRequestDTO($in);
+        $row = $this->mapper->toPersistence($entidad);
+        $id = $this->repo->insert($row);
 
-  public function obtener(int $id): array {
-    $c = $this->repo->find($id);
-    if (!$c) { throw new AppException('Catedratico no encontrado', 404); }
-    return [
-      'id' => $c->id(),
-      'nombre' => $c->nombre(),
-      'especialidad' => $c->especialidad(),
-      'correo' => $c->correo(),
-    ];
-  }
+        $fresh = $this->repo->findById($id);           // traigo lo que quedó realmente en bd
+        $e = $this->mapper->fromPersistence($fresh);
+        return $this->mapper->toResponseDTO($e);
+    }
 
-  public function crear(CatedraticoDTO $dto): int {
-    $this->validator->validateCreate($dto->toArray());
-    $c = new Catedratico(null, $dto->nombre, $dto->especialidad, $dto->correo);
-    return $this->repo->create($c);
-  }
+    /**
+     * list:
+     * - traigo filas crudas
+     * - por cada fila hago array -> entidad -> responsedto
+     */
+    public function list(): array
+    {
+        $rows = $this->repo->findAll();
+        $out = [];
+        foreach ($rows as $r) {
+            $e = $this->mapper->fromPersistence($r);
+            $out[] = $this->mapper->toResponseDTO($e);
+        }
+        return $out;
+    }
 
-  public function actualizar(int $id, CatedraticoDTO $dto): void {
-    $this->validator->validateUpdate($dto->toArray());
-    $exist = $this->repo->find($id);
-    if (!$exist) { throw new AppException('Catedratico no encontrado', 404); }
-    if ($dto->nombre) $exist->renombrar($dto->nombre);
-    if ($dto->especialidad) $exist->cambiarEspecialidad($dto->especialidad);
-    if ($dto->correo) $exist->cambiarCorreo($dto->correo);
-    $this->repo->update($exist);
-  }
+    /**
+     * getById:
+     * - si no existe, regreso null
+     * - si existe, devuelvo responsedto
+     */
+    public function getById(int $id): ?CatedraticoResponseDTO
+    {
+        $row = $this->repo->findById($id);
+        if (!$row) return null;
 
-  public function eliminar(int $id): void { $this->repo->delete($id); }
+        $e = $this->mapper->fromPersistence($row);
+        return $this->mapper->toResponseDTO($e);
+    }
+
+    /**
+     * update:
+     * - cargo el actual para conservar created_at/by
+     * - mapeo requestdto + base -> entidad
+     * - paso a array y hago update
+     * - leo de nuevo para devolver responsedto consistente (updated_at real)
+     */
+    public function update(int $id, CatedraticoRequestDTO $in): ?CatedraticoResponseDTO
+    {
+        $current = $this->repo->findById($id);
+        if (!$current) return null;
+
+        // validar datos de entrada
+        $this->validator->validateUpdate([
+            'nombre' => $in->nombre,
+            'especialidad' => $in->especialidad,
+            'correo' => $in->correo
+        ]);
+
+        $base = $this->mapper->fromPersistence($current);
+        $entidad = $this->mapper->fromRequestDTO($in, $base);
+        $row = $this->mapper->toPersistence($entidad);
+
+        $ok = $this->repo->update($id, $row);
+        if (!$ok) return null;
+
+        $fresh = $this->repo->findById($id);
+        $e = $this->mapper->fromPersistence($fresh);
+        return $this->mapper->toResponseDTO($e);
+    }
+
+    /**
+     * delete:
+     * - soft delete implementado
+     */
+    public function delete(int $id): bool
+    {
+        return $this->repo->delete($id);
+    }
 }

@@ -1,8 +1,8 @@
 # API SOLID - USPG (Composer)
 
 Proyecto PHP con **principios SOLID**, **mysqli** (XAMPP) y estructura por capas.  
-Actualmente implementado para **Alumnos** con **DTOs, Mapper y campos de auditoría**.  
-El recurso de **Catedráticos** está definido pero pendiente de migración al mismo modelo.
+Implementado para **Alumnos** y **Catedráticos** con **DTOs, Mapper y campos de auditoría**.  
+Ambos recursos siguen el mismo modelo arquitectónico moderno.
 
 ---
 
@@ -33,9 +33,17 @@ El recurso de **Catedráticos** está definido pero pendiente de migración al m
    CREATE TABLE IF NOT EXISTS catedraticos (
      id INT AUTO_INCREMENT PRIMARY KEY,
      nombre VARCHAR(120) NOT NULL,
-     email VARCHAR(120) NOT NULL UNIQUE
+     especialidad VARCHAR(120) NOT NULL,
+     correo VARCHAR(120) NOT NULL UNIQUE,
+     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+     updated_at DATETIME NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+     created_by VARCHAR(80) NULL,
+     updated_by VARCHAR(80) NULL,
+     deleted_at DATETIME NULL
    );
    ```
+
+   **Si ya tienes la tabla catedráticos sin auditoría**, ejecuta el script `database_update.sql` para actualizarla.
 3. En consola dentro del proyecto:
    ```bash
    composer dump-autoload
@@ -58,7 +66,9 @@ El recurso de **Catedráticos** está definido pero pendiente de migración al m
 
 ---
 
-## 🗂️ DTOs de Alumno
+## 🗂️ DTOs
+
+### Alumnos
 - `AlumnoRequestDTO` → usado en `POST` y `PUT`.  
   ```json
   {
@@ -73,6 +83,31 @@ El recurso de **Catedráticos** está definido pero pendiente de migración al m
     "id": 1,
     "nombre": "Juan Pérez",
     "email": "juan@example.com",
+    "created_at": "2025-09-12 18:30:00",
+    "updated_at": null,
+    "created_by": "erickF",
+    "updated_by": null,
+    "deleted_at": null
+  }
+  ```
+
+### Catedráticos
+- `CatedraticoRequestDTO` → usado en `POST` y `PUT`.  
+  ```json
+  {
+    "nombre": "Dr. María García",
+    "especialidad": "Matemáticas",
+    "correo": "maria@uspg.edu"
+  }
+  ```
+- `CatedraticoResponseDTO` → usado en respuestas (`GET`, `POST`, `PUT`).  
+  Incluye campos de auditoría:
+  ```json
+  {
+    "id": 1,
+    "nombre": "Dr. María García",
+    "especialidad": "Matemáticas",
+    "correo": "maria@uspg.edu",
     "created_at": "2025-09-12 18:30:00",
     "updated_at": null,
     "created_by": "erickF",
@@ -125,15 +160,48 @@ Content-Type: application/json
 ---
 
 ### Catedráticos
-Actualmente disponible en versión básica:  
-- `GET/POST /catedraticos`
-- `GET/PUT/DELETE /catedraticos/{id}`  
+- `GET    /catedraticos` → lista todos (array de ResponseDTO)
+- `GET    /catedraticos/{id}` → uno por id
+- `POST   /catedraticos` → crea nuevo (usa RequestDTO)
+- `PUT    /catedraticos/{id}` → actualiza existente (usa RequestDTO)
+- `DELETE /catedraticos/{id}` → elimina (soft delete)
 
-*(pendiente de migrar a DTOs + auditoría como Alumnos).*
+#### Ejemplo: crear catedrático
+**Request**
+```bash
+POST /catedraticos
+Header: X-User: erickF
+Content-Type: application/json
+
+{
+  "nombre": "Dr. María García",
+  "especialidad": "Matemáticas",
+  "correo": "maria@uspg.edu"
+}
+```
+
+**Response**
+```json
+{
+  "ok": true,
+  "data": {
+    "id": 1,
+    "nombre": "Dr. María García",
+    "especialidad": "Matemáticas",
+    "correo": "maria@uspg.edu",
+    "created_at": "2025-09-12 19:15:00",
+    "updated_at": null,
+    "created_by": "erickF",
+    "updated_by": null,
+    "deleted_at": null
+  }
+}
+```
 
 ---
 
 ## ✅ Notas
 - El **actor** (`created_by` / `updated_by`) se toma del header `X-User`. Si no se envía, se guarda como `"system"`.
 - `updated_at` se actualiza automáticamente por MySQL en cada `UPDATE`.
-- `deleted_at` preparado para **soft delete**, por ahora `DELETE` es duro.
+- **Soft delete** implementado: `DELETE` marca `deleted_at` en lugar de eliminar físicamente.
+- Ambas entidades (Alumnos y Catedráticos) siguen el mismo patrón arquitectónico.

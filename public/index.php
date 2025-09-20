@@ -9,8 +9,9 @@ require_once __DIR__ . '/../vendor/autoload.php';
 // instancio el container
 $container = new Container();
 
-// obtengo el controller de alumnos
+// obtengo los controllers
 $alumnos = $container->alumnoController();
+$catedraticos = $container->catedraticoController();
 
 // router minimal
 $router = new Router();
@@ -21,6 +22,13 @@ $router->add('GET',    '/api-solid-uspg/public/alumnos/(\d+)',         fn($id)  
 $router->add('POST',   '/api-solid-uspg/public/alumnos',               fn()       => $alumnos->store());
 $router->add('PUT',    '/api-solid-uspg/public/alumnos/(\d+)',         fn($id)    => $alumnos->update((int)$id));
 $router->add('DELETE', '/api-solid-uspg/public/alumnos/(\d+)',         fn($id)    => $alumnos->destroy((int)$id));
+
+// rutas de catedráticos (rest)
+$router->add('GET',    '/api-solid-uspg/public/catedraticos',          fn()       => $catedraticos->index());
+$router->add('GET',    '/api-solid-uspg/public/catedraticos/(\d+)',    fn($id)    => $catedraticos->show((int)$id));
+$router->add('POST',   '/api-solid-uspg/public/catedraticos',          fn()       => $catedraticos->store());
+$router->add('PUT',    '/api-solid-uspg/public/catedraticos/(\d+)',    fn($id)    => $catedraticos->update((int)$id));
+$router->add('DELETE', '/api-solid-uspg/public/catedraticos/(\d+)',    fn($id)    => $catedraticos->destroy((int)$id));
 
 // despacha
 $router->dispatch($_SERVER['REQUEST_METHOD'], $_SERVER['REQUEST_URI']);

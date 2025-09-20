@@ -8,6 +8,10 @@ use App\I_Infrastructure\Persistence\MySQLAlumnoRepository;
 use App\I_Infrastructure\Persistence\MySQLCatedraticoRepository;
 
 use App\A_Application\Mappers\AlumnoMapper;
+use App\A_Application\Mappers\CatedraticoMapper;
+
+use App\A_Application\Validators\AlumnoValidator;
+use App\A_Application\Validators\CatedraticoValidator;
 
 use App\A_Application\Services\AlumnoService;
 use App\D_Domain\Services\AlumnoServiceInterface;
@@ -40,6 +44,22 @@ final class Container
         return new AlumnoMapper();
     }
 
+    public function catedraticoMapper(): CatedraticoMapper
+    {
+        return new CatedraticoMapper();
+    }
+
+    // ===== validadores =====
+    public function alumnoValidator(): AlumnoValidator
+    {
+        return new AlumnoValidator();
+    }
+
+    public function catedraticoValidator(): CatedraticoValidator
+    {
+        return new CatedraticoValidator();
+    }
+
     // ===== repositorios =====
     public function alumnoRepository(): AlumnoRepositoryInterface
     {
@@ -53,20 +73,23 @@ final class Container
     }
 
     // ===== servicios =====
-    /** alumnos: ahora el service recibe repo + mapper (sin validador por ahora) */
+    /** alumnos: ahora el service recibe repo + mapper + validator */
     public function alumnoService(): AlumnoServiceInterface
     {
         return new AlumnoService(
             $this->alumnoRepository(),
-            $this->alumnoMapper()
+            $this->alumnoMapper(),
+            $this->alumnoValidator()
         );
     }
 
-    /** catedráticos: se mantiene como lo tenías (lo migraremos después) */
+    /** catedráticos: ahora el service recibe repo + mapper + validator */
     public function catedraticoService(): CatedraticoServiceInterface
     {
         return new CatedraticoService(
-            $this->catedraticoRepository()
+            $this->catedraticoRepository(),
+            $this->catedraticoMapper(),
+            $this->catedraticoValidator()
         );
     }
 

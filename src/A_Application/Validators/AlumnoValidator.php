@@ -8,24 +8,43 @@ use App\S_Shared\Errors\ValidationException;
 /**
  * Validador Alumno [SRP]
  */
-final class AlumnoValidator {
-  private function validateDateYmd(string $date): bool {
-    $d = \DateTime::createFromFormat('Y-m-d', $date);
-    return $d && $d->format('Y-m-d') === $date;
-  }
-
-  public function validateCreate(array $data): void {
-    if (empty($data['nombre'])) { throw new ValidationException('El nombre es requerido'); }
-    if (empty($data['carnet'])) { throw new ValidationException('El carnet es requerido'); }
-    if (empty($data['carrera'])) { throw new ValidationException('La carrera es requerida'); }
-    if (empty($data['fecha_ingreso']) || !$this->validateDateYmd($data['fecha_ingreso'])) {
-      throw new ValidationException('fecha_ingreso inválida (use Y-m-d)');
+final class AlumnoValidator
+{
+    public function validateCreate(array $data): void
+    {
+        if (empty($data['nombre'])) {
+            throw new ValidationException('El nombre es requerido');
+        }
+        
+        if (empty($data['email'])) {
+            throw new ValidationException('El email es requerido');
+        }
+        
+        if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            throw new ValidationException('El email es inválido');
+        }
+        
+        if (strlen($data['nombre']) > 120) {
+            throw new ValidationException('El nombre no puede exceder 120 caracteres');
+        }
+        
+        if (strlen($data['email']) > 120) {
+            throw new ValidationException('El email no puede exceder 120 caracteres');
+        }
     }
-  }
-
-  public function validateUpdate(array $data): void {
-    if (isset($data['fecha_ingreso']) && !$this->validateDateYmd((string)$data['fecha_ingreso'])) {
-      throw new ValidationException('fecha_ingreso inválida (use Y-m-d)');
+    
+    public function validateUpdate(array $data): void
+    {
+        if (isset($data['email']) && !filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
+            throw new ValidationException('El email es inválido');
+        }
+        
+        if (isset($data['nombre']) && strlen($data['nombre']) > 120) {
+            throw new ValidationException('El nombre no puede exceder 120 caracteres');
+        }
+        
+        if (isset($data['email']) && strlen($data['email']) > 120) {
+            throw new ValidationException('El email no puede exceder 120 caracteres');
+        }
     }
-  }
 }
